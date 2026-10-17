@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+TREE=${AERA_TREE:?Set AERA_TREE to the AERA Android source checkout}
+CLANG=$TREE/prebuilts/clang/host/linux-x86/clang-r530567/bin/clang
+SYSROOT=$TREE/prebuilts/build-tools/sysroots/aarch64-unknown-linux-musl
+HEADERS=$TREE/prebuilts/clang/host/linux-x86/clang-r530567/lib/clang/19/include
+BUILTINS=$TREE/prebuilts/clang/host/linux-x86/clang-r530567/lib/clang/19/lib/aarch64-unknown-linux-musl/libclang_rt.builtins.a
+link=yes
+for arg do
+  case "$arg" in -c|-S|-E|-M|-MM|--version|-v|-dumpmachine|-dumpversion) link=no;; esac
+done
+if [ "$link" = no ]; then
+  exec "$CLANG" --target=aarch64-unknown-linux-musl --sysroot="$SYSROOT" -nostdinc -isystem "$HEADERS" -isystem "$SYSROOT/include" "$@"
+fi
+exec "$CLANG" --target=aarch64-unknown-linux-musl --sysroot="$SYSROOT" -nostdinc -isystem "$HEADERS" -isystem "$SYSROOT/include" -static -nostdlib -fuse-ld=lld "$SYSROOT/lib/crt1.o" "$SYSROOT/lib/crti.o" "$@" -L"$SYSROOT/lib" -lc -lm -lpthread "$BUILTINS" "$SYSROOT/lib/crtn.o"

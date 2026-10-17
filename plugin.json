@@ -1,0 +1,24 @@
+{
+  "schema": 1,
+  "id": "storage-benchmark",
+  "name": "AERA Storage Benchmark",
+  "version": "0.1.5",
+  "description": "Benchmark internal, USB and network storage.",
+  "type": "ui-runtime",
+  "entry": "main",
+  "min_host_api": 2,
+  "protocol_version": 2,
+  "executable": "usr/bin/aera-plugin",
+  "icon": "storage",
+  "payload": "runtime.xz",
+  "payload_url": "https://github.com/AERA-Plugins/storage-benchmark/releases/download/v0.1.5/runtime.xz",
+  "permissions": [
+    "display",
+    "touch-input"
+  ],
+  "payload_size": 383052,
+  "payload_sha256": "998ebba3fea358a4ba91213fd1dd232eb40dbd94fd7bfea5d4a2cd40649c4f36",
+  "expanded_size": 1923233,
+  "expanded_sha256": "61479c374968f20a28fcc3764c2967e12e759ba77dfbdd7f628543e002ad5e86",
+  "member_count": 4
+}

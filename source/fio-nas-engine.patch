@@ -1,0 +1,85 @@
+diff --git a/engines/sync.c b/engines/sync.c
+index ba71ee0..3b42cea 100644
+--- a/engines/sync.c
++++ b/engines/sync.c
+@@ -10,6 +10,7 @@
+ #include <unistd.h>
+ #include <sys/uio.h>
+ #include <errno.h>
++#include <sys/stat.h>
+ 
+ #include "../fio.h"
+ #include "../optgroup.h"
+@@ -425,6 +426,56 @@ static void fio_vsyncio_cleanup(struct thread_data *td)
+ 	}
+ }
+ 
++/* AERA's private NAS test file: preserve fio's sync I/O, but open the
++ * pre-created empty file as a truncating write stream for uncached rclone. */
++static int fio_aera_nas_open(struct thread_data *td, struct fio_file *f)
++{
++	struct stat st;
++	char marker[22] = {0};
++	ssize_t length;
++	int owner, writing = td_write(td);
++	if (strcmp(f->file_name, "/proc/self/fd/6/data.bin") ||
++	    td_rw(td) || td_random(td) || td->o.odirect || td->o.numjobs != 1) {
++		td_verror(td, EINVAL, "aera_nas workload");
++		return 1;
++	}
++	owner = openat(6, "owner", O_RDONLY | O_NOFOLLOW);
++	if (owner < 0) return 1;
++	length = read(owner, marker, sizeof(marker));
++	close(owner);
++	if (length != 21 || memcmp(marker, "AERA-STORAGE-BENCH-1\n", 21) ||
++	    fstatat(6, "data.bin", &st, AT_SYMLINK_NOFOLLOW) ||
++	    !S_ISREG(st.st_mode) || (writing && st.st_size != 0)) {
++		td_verror(td, EPERM, "aera_nas private empty file");
++		return 1;
++	}
++	f->fd = openat(6, "data.bin", (writing ? O_WRONLY | O_TRUNC : O_RDONLY) | O_NOFOLLOW);
++	if (f->fd < 0) {
++		td_verror(td, errno, "aera_nas open");
++		return 1;
++	}
++	return 0;
++}
++
++static int fio_aera_nas_close(struct thread_data *td, struct fio_file *f)
++{
++	int result = close(f->fd);
++	(void) td;
++	f->fd = -1;
++	return result < 0 ? errno : 0;
++}
++
++static struct ioengine_ops ioengine_aera_nas = {
++	.name           = "aera_nas",
++	.version        = FIO_IOOPS_VERSION,
++	.prep           = fio_syncio_prep,
++	.queue          = fio_syncio_queue,
++	.open_file      = fio_aera_nas_open,
++	.close_file     = fio_aera_nas_close,
++	.get_file_size  = generic_get_file_size,
++	.flags          = FIO_SYNCIO | FIO_SYNCFS,
++};
++
+ static struct ioengine_ops ioengine_rw = {
+ 	.name		= "sync",
+ 	.version	= FIO_IOOPS_VERSION,
+@@ -493,6 +544,7 @@ static struct ioengine_ops ioengine_pvrw2 = {
+ 
+ static void fio_init fio_syncio_register(void)
+ {
++	register_ioengine(&ioengine_aera_nas);
+ 	register_ioengine(&ioengine_rw);
+ 	register_ioengine(&ioengine_prw);
+ 	register_ioengine(&ioengine_vrw);
+@@ -506,6 +558,7 @@ static void fio_init fio_syncio_register(void)
+ 
+ static void fio_exit fio_syncio_unregister(void)
+ {
++	unregister_ioengine(&ioengine_aera_nas);
+ 	unregister_ioengine(&ioengine_rw);
+ 	unregister_ioengine(&ioengine_prw);
+ 	unregister_ioengine(&ioengine_vrw);
